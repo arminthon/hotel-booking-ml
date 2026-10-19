@@ -86,7 +86,9 @@ if submitted:
 
     for col_name in dummy_choices:
         if col_name in input_df.columns:
-            input_df.at[0, col_name] = 1
+            input_df[col_name] = input_df[col_name].astype(int)
+            input_df.loc[0, col_name] = 1
+
 
     # ۵. انجام پیش‌بینی با مدل هوش مصنوعی
     prediction = model.predict(input_df)[0]

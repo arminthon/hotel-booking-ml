@@ -42,7 +42,11 @@ with st.form("hotel_form"):
         booking_changes = st.number_input("تعداد دفعات تغییر رزرو", min_value=0, max_value=20, value=0)
         required_car_parking_spaces = st.number_input("تعداد جای پارک درخواستی", min_value=0, max_value=10, value=0)
         total_of_special_requests = st.number_input("تعداد درخواست‌های ویژه", min_value=0, max_value=10, value=1)
-        is_repeated_guest = st.selectbox("آیا مسافر قبلی هتل است؟", [0, 1], format_func=lambda x: "بله" if x == 1 else "خیر")
+        is_repeated_guest = st.selectbox(
+            "آیا مسافر قبلی هتل است؟",
+            [0, 1],
+            format_func=lambda x: "بله" if x == 1 else "خیر"
+        )
 
     submitted = st.form_submit_button("🔮 بررسی وضعیت رزرو")
 
@@ -51,14 +55,16 @@ if submitted:
     # ۱. خواندن لیست ستون‌هایی که مدل آموزش دیده انتظار دارد
     expected_columns = getattr(model, "feature_names_in_", None)
 
-    # ۲. ساخت یک ردیف با مقدار اولیه ۰ برای تمام ستون‌های مدل
+    # ۲. ساخت یک ردیف با مقدار اولیه ۰.۰ (float) برای تمام ستون‌های مدل
+    #    چرا float؟ چون بعضی ویژگی‌ها مثل adr اعشاری هستند و Pandas جدید اجازه نمی‌دهد
+    #    روی ستون int مقدار float ست شود.
     if expected_columns is not None:
-        input_df = pd.DataFrame(0, index=[0], columns=expected_columns)
+        input_df = pd.DataFrame(0.0, index=[0], columns=expected_columns)
     else:
         st.error("ستون‌های مدل شناسایی نشد!")
         st.stop()
 
-    # ۳. پر کردن ستون‌های عددی مستقیم
+    # ۳. پر کردن ستون‌های عددی مستقیم (همه را به float تبدیل می‌کنیم تا نوع داده یکدست باشد)
     direct_numeric_cols = {
         "lead_time": lead_time,
         "stays_in_week_nights": stays_in_week_nights,
@@ -75,9 +81,10 @@ if submitted:
 
     for col_name, value in direct_numeric_cols.items():
         if col_name in input_df.columns:
-            input_df.at[0, col_name] = value
+            # با loc ست می‌کنیم و مقدار را float می‌کنیم تا Pandas گیر نوع داده ندهد
+            input_df.loc[0, col_name] = float(value)
 
-    # ۴. ست کردن ستون‌های One-Hot بر اساس انتخاب کاربر
+    # ۴. ست کردن ستون‌های One-Hot بر اساس انتخاب کاربر (اینجا هم 1.0 می‌گذاریم)
     dummy_choices = [
         f"hotel_{hotel_type}",
         f"deposit_type_{deposit_type}",
@@ -86,9 +93,10 @@ if submitted:
 
     for col_name in dummy_choices:
         if col_name in input_df.columns:
-            input_df[col_name] = input_df[col_name].astype(int)
-            input_df.loc[0, col_name] = 1
+            input_df.loc[0, col_name] = 1.0
 
+    # (اختیاری ولی مفید) اطمینان از اینکه کل دیتافریم float است
+    input_df = input_df.astype(float)
 
     # ۵. انجام پیش‌بینی با مدل هوش مصنوعی
     prediction = model.predict(input_df)[0]
